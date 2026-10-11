@@ -57,7 +57,16 @@ type Collector struct {
 	firewall  *FirewallChecker
 
 	integrations *IntegrationChecker
+
+	failedUnits, detectedServices     []string
+	failedUnitsAt, detectedServicesAt time.Time
 }
+
+// systemctl is cheap but not free, and these lists rarely change, so they are refreshed less often than samples.
+const (
+	failedUnitsInterval      = time.Minute
+	detectedServicesInterval = 15 * time.Minute
+)
 
 // NewCollector creates a collector. Docker, the security watcher and integrations are nil when disabled.
 func NewCollector(docker *Docker, watcher *security.Watcher, integrations *IntegrationChecker) *Collector {
@@ -100,8 +109,8 @@ func (c *Collector) Sample(ctx context.Context, watches []Watch, switches Switch
 		Filesystems:      Filesystems(),
 		Interfaces:       interfaces,
 		Services:         c.services.Collect(ctx, watches),
-		FailedUnits:      FailedUnits(ctx),
-		DetectedServices: DetectedServices(ctx),
+		FailedUnits:      c.cachedFailedUnits(ctx, now),
+		DetectedServices: c.cachedDetectedServices(ctx, now),
 		TopProcesses:     topProcesses,
 		ListeningPorts:   listeningPorts,
 		Zombies:          zombies,
@@ -127,4 +136,18 @@ func (c *Collector) Sample(ctx context.Context, watches []Watch, switches Switch
 	}
 
 	return sample
+}
+
+func (c *Collector) cachedFailedUnits(ctx context.Context, now time.Time) []string {
+	if c.failedUnitsAt.IsZero() || now.Sub(c.failedUnitsAt) >= failedUnitsInterval {
+		c.failedUnits, c.failedUnitsAt = FailedUnits(ctx), now
+	}
+	return c.failedUnits
+}
+
+func (c *Collector) cachedDetectedServices(ctx context.Context, now time.Time) []string {
+	if c.detectedServicesAt.IsZero() || now.Sub(c.detectedServicesAt) >= detectedServicesInterval {
+		c.detectedServices, c.detectedServicesAt = DetectedServices(ctx), now
+	}
+	return c.detectedServices
 }
