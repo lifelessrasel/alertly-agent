@@ -132,6 +132,11 @@
             "address": "::"
           }
         ],
+        "updates": {
+          "reboot_required": true,
+          "pending": 12,
+          "security": 3
+        },
         "security": {
           "failed_logins": 4,
           "oom_kills": 1,

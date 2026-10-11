@@ -25,6 +25,7 @@ type Sample struct {
 	DetectedServices []string         `json:"detected_services"`
 	TopProcesses     []TopProcess     `json:"top_processes"`
 	ListeningPorts   []ListeningPort  `json:"listening_ports"`
+	Updates          *Updates         `json:"updates,omitempty"`
 	Security         *security.Counts `json:"security,omitempty"`
 	Docker           *DockerState     `json:"docker,omitempty"`
 
@@ -49,11 +50,12 @@ type Collector struct {
 	processes *Processes
 	docker    *Docker
 	security  *security.Watcher
+	updates   *UpdateChecker
 }
 
 // NewCollector creates a collector. Docker and the security watcher are nil when disabled.
 func NewCollector(docker *Docker, watcher *security.Watcher) *Collector {
-	return &Collector{system: NewSystem(), services: NewServices(), processes: NewProcesses(), docker: docker, security: watcher}
+	return &Collector{system: NewSystem(), services: NewServices(), processes: NewProcesses(), docker: docker, security: watcher, updates: NewUpdateChecker()}
 }
 
 // Sample collects every metric. watches are the services the server asked to report.
@@ -80,6 +82,7 @@ func (c *Collector) Sample(ctx context.Context, watches []Watch) Sample {
 		DetectedServices: DetectedServices(ctx),
 		TopProcesses:     topProcesses,
 		ListeningPorts:   listeningPorts,
+		Updates:          c.updates.Collect(ctx),
 		takenAt:          now,
 	}
 

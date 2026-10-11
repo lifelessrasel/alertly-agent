@@ -64,6 +64,7 @@ func TestPayloadsMatchFixture(t *testing.T) {
 			{Protocol: "tcp", Port: 3306, Address: "127.0.0.1", Process: "mysqld"},
 			{Protocol: "udp", Port: 53, Address: "::"},
 		},
+		Updates:  &collect.Updates{RebootRequired: true, Pending: ptr(12), Security: ptr(3)},
 		Security: &security.Counts{FailedLogins: 4, OOMKills: 1, OOMKilled: []string{"mysqld"}},
 		Docker: &collect.DockerState{
 			Available: true,
