@@ -1,5 +1,6 @@
-// Package security watches the authentication and kernel logs for failed SSH logins and out-of-memory kills.
-// Lines are only counted on the server; they are never sent anywhere.
+// Package security watches the authentication and kernel logs for failed SSH logins, sudo use, new user
+// accounts, admin group changes and out-of-memory kills. Lines are only counted on the server: only counts
+// and user, group and process names are reported, never the commands that were run.
 package security
 
 import (
@@ -20,13 +21,24 @@ type Counts struct {
 	FailedLogins uint64   `json:"failed_logins"`
 	OOMKills     uint64   `json:"oom_kills"`
 	OOMKilled    []string `json:"oom_killed,omitempty"`
+	SudoCommands uint64   `json:"sudo_commands"`
+	SudoUsers    []string `json:"sudo_users,omitempty"`
+	NewUsers     []string `json:"new_users,omitempty"`
+	AdminGrants  []string `json:"admin_grants,omitempty"`
 }
 
-const maxKilledNames = 10
+const maxNames = 10
+
+// adminGroups give root or root-equivalent access.
+const adminGroups = `sudo|wheel|admin|root|docker`
 
 var (
 	sshFailure = regexp.MustCompile(`\bsshd(?:-session)?\[(\d+)\]: .*(?:Failed \S+ for |Invalid user |authentication failure)`)
 	oomKill    = regexp.MustCompile(`Killed process \d+ \(([^)]{1,64})\)`)
+	sudoUse    = regexp.MustCompile(`\bsudo(?:\[\d+\])?:\s+(\S{1,32}) : (?:TTY|PWD|USER)=.*\bCOMMAND=`)
+	newUser    = regexp.MustCompile(`\buseradd\[\d+\]: new user: name=([^,\s]{1,32})`)
+	groupAdd   = regexp.MustCompile(`\busermod\[\d+\]: add '([^']{1,32})' to group '(` + adminGroups + `)'`)
+	groupGrant = regexp.MustCompile(`\bgpasswd\[\d+\]: user (\S{1,32}) added by \S+ to group (` + adminGroups + `)\b`)
 )
 
 // Watcher counts security events from the logs it can read.
@@ -91,14 +103,38 @@ func (w *Watcher) Observe(line string) {
 		return
 	}
 
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if match := oomKill.FindStringSubmatch(line); match != nil {
-		w.mu.Lock()
 		w.counts.OOMKills++
-		if len(w.counts.OOMKilled) < maxKilledNames && !contains(w.counts.OOMKilled, match[1]) {
-			w.counts.OOMKilled = append(w.counts.OOMKilled, match[1])
-		}
-		w.mu.Unlock()
+		w.counts.OOMKilled = appendName(w.counts.OOMKilled, match[1])
+		return
 	}
+	if match := sudoUse.FindStringSubmatch(line); match != nil {
+		w.counts.SudoCommands++
+		w.counts.SudoUsers = appendName(w.counts.SudoUsers, match[1])
+		return
+	}
+	if match := newUser.FindStringSubmatch(line); match != nil {
+		w.counts.NewUsers = appendName(w.counts.NewUsers, match[1])
+		return
+	}
+	if match := groupAdd.FindStringSubmatch(line); match != nil {
+		w.counts.AdminGrants = appendName(w.counts.AdminGrants, match[1]+":"+match[2])
+		return
+	}
+	if match := groupGrant.FindStringSubmatch(line); match != nil {
+		w.counts.AdminGrants = appendName(w.counts.AdminGrants, match[1]+":"+match[2])
+	}
+}
+
+func appendName(names []string, name string) []string {
+	if len(names) >= maxNames || contains(names, name) {
+		return names
+	}
+
+	return append(names, name)
 }
 
 func (w *Watcher) follow(ctx context.Context, kind, path string, args []string) {

@@ -196,3 +196,23 @@ func TestContainerCPUAndMemory(t *testing.T) {
 		t.Fatalf("got %d, want 700", memory)
 	}
 }
+
+func TestZombiesNameTheirParents(t *testing.T) {
+	state, ppid := procStateAndParent("4242 (php-fpm: pool www) Z 900 4242 4242 0 -1 4194564 0 0 0 0 0 0 0 0 20 0 1 0 1000 0 0")
+	if state != "Z" || ppid != 900 {
+		t.Fatalf("got state %q parent %d", state, ppid)
+	}
+
+	got := zombies([]processSample{
+		{pid: 900, name: "php-fpm"},
+		{pid: 901, ppid: 900, zombie: true, name: "php-fpm"},
+		{pid: 902, ppid: 900, zombie: true, name: "php-fpm"},
+		{pid: 903, ppid: 1, zombie: true, name: "sh"},
+		{pid: 1, name: "systemd"},
+		{pid: 904, ppid: 1, name: "nginx"},
+	})
+	want := &Zombies{Count: 3, Parents: []string{"php-fpm", "systemd"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}

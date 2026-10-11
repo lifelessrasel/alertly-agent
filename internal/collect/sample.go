@@ -25,6 +25,8 @@ type Sample struct {
 	DetectedServices []string         `json:"detected_services"`
 	TopProcesses     []TopProcess     `json:"top_processes"`
 	ListeningPorts   []ListeningPort  `json:"listening_ports"`
+	Zombies          *Zombies         `json:"zombies,omitempty"`
+	Firewall         *Firewall        `json:"firewall,omitempty"`
 	Updates          *Updates         `json:"updates,omitempty"`
 	Security         *security.Counts `json:"security,omitempty"`
 	Docker           *DockerState     `json:"docker,omitempty"`
@@ -51,11 +53,12 @@ type Collector struct {
 	docker    *Docker
 	security  *security.Watcher
 	updates   *UpdateChecker
+	firewall  *FirewallChecker
 }
 
 // NewCollector creates a collector. Docker and the security watcher are nil when disabled.
 func NewCollector(docker *Docker, watcher *security.Watcher) *Collector {
-	return &Collector{system: NewSystem(), services: NewServices(), processes: NewProcesses(), docker: docker, security: watcher, updates: NewUpdateChecker()}
+	return &Collector{system: NewSystem(), services: NewServices(), processes: NewProcesses(), docker: docker, security: watcher, updates: NewUpdateChecker(), firewall: NewFirewallChecker()}
 }
 
 // Sample collects every metric. watches are the services the server asked to report.
@@ -63,7 +66,7 @@ func (c *Collector) Sample(ctx context.Context, watches []Watch) Sample {
 	now := time.Now()
 	cpu, diskIO, network, interfaces := c.system.Rates()
 	memory, swap := MemoryUsage()
-	topProcesses, listeningPorts := c.processes.Top()
+	topProcesses, listeningPorts, zombies := c.processes.Top()
 
 	sample := Sample{
 		RecordedAt:       now.UTC().Format(time.RFC3339),
@@ -82,6 +85,8 @@ func (c *Collector) Sample(ctx context.Context, watches []Watch) Sample {
 		DetectedServices: DetectedServices(ctx),
 		TopProcesses:     topProcesses,
 		ListeningPorts:   listeningPorts,
+		Zombies:          zombies,
+		Firewall:         c.firewall.Collect(ctx),
 		Updates:          c.updates.Collect(ctx),
 		takenAt:          now,
 	}

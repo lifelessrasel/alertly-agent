@@ -64,8 +64,13 @@ func TestPayloadsMatchFixture(t *testing.T) {
 			{Protocol: "tcp", Port: 3306, Address: "127.0.0.1", Process: "mysqld"},
 			{Protocol: "udp", Port: 53, Address: "::"},
 		},
+		Zombies:  &collect.Zombies{Count: 2, Parents: []string{"php-fpm"}},
+		Firewall: &collect.Firewall{Tool: "ufw", Active: true},
 		Updates:  &collect.Updates{RebootRequired: true, Pending: ptr(12), Security: ptr(3)},
-		Security: &security.Counts{FailedLogins: 4, OOMKills: 1, OOMKilled: []string{"mysqld"}},
+		Security: &security.Counts{
+			FailedLogins: 4, OOMKills: 1, OOMKilled: []string{"mysqld"},
+			SudoCommands: 3, SudoUsers: []string{"deploy"}, NewUsers: []string{"backup"}, AdminGrants: []string{"backup:sudo"},
+		},
 		Docker: &collect.DockerState{
 			Available: true,
 			Version:   "27.3.1",

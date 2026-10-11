@@ -132,6 +132,16 @@
             "address": "::"
           }
         ],
+        "zombies": {
+          "count": 2,
+          "parents": [
+            "php-fpm"
+          ]
+        },
+        "firewall": {
+          "tool": "ufw",
+          "active": true
+        },
         "updates": {
           "reboot_required": true,
           "pending": 12,
@@ -142,6 +152,16 @@
           "oom_kills": 1,
           "oom_killed": [
             "mysqld"
+          ],
+          "sudo_commands": 3,
+          "sudo_users": [
+            "deploy"
+          ],
+          "new_users": [
+            "backup"
+          ],
+          "admin_grants": [
+            "backup:sudo"
           ]
         },
         "docker": {

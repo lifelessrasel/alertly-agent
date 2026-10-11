@@ -20,6 +20,12 @@ type TopProcess struct {
 	MemoryBytes uint64  `json:"memory_bytes"`
 }
 
+// Zombies are exited processes their parent hasn't reaped. Parents names the processes that should reap them.
+type Zombies struct {
+	Count   uint64   `json:"count"`
+	Parents []string `json:"parents,omitempty"`
+}
+
 // ListeningPort is a socket accepting connections or datagrams.
 type ListeningPort struct {
 	Protocol string `json:"protocol"`
@@ -30,6 +36,7 @@ type ListeningPort struct {
 
 const (
 	topProcessesPerRanking = 10
+	maxZombieParents       = 10
 	maxListeningPorts      = 100
 )
 
@@ -55,6 +62,8 @@ func NewProcesses() *Processes {
 
 type processSample struct {
 	pid      int
+	ppid     int
+	zombie   bool
 	name     string
 	uid      string
 	cpuTicks uint64
@@ -62,8 +71,8 @@ type processSample struct {
 	sockets  []string
 }
 
-// Top returns the busiest process groups by CPU and by memory, and the listening ports.
-func (p *Processes) Top() ([]TopProcess, []ListeningPort) {
+// Top returns the busiest process groups by CPU and by memory, the listening ports and the zombie processes.
+func (p *Processes) Top() ([]TopProcess, []ListeningPort, *Zombies) {
 	now := time.Now()
 	elapsed := now.Sub(p.lastAt).Seconds()
 	p.lastAt = now
@@ -103,7 +112,39 @@ func (p *Processes) Top() ([]TopProcess, []ListeningPort) {
 		all = append(all, *group)
 	}
 
-	return rankProcesses(all, topProcessesPerRanking), listeningPorts(socketOwners)
+	return rankProcesses(all, topProcessesPerRanking), listeningPorts(socketOwners), zombies(processes)
+}
+
+// zombies counts the zombie processes and names their parents.
+func zombies(processes []processSample) *Zombies {
+	names := make(map[int]string, len(processes))
+	for _, process := range processes {
+		names[process.pid] = process.name
+	}
+
+	result := &Zombies{}
+	for _, process := range processes {
+		if !process.zombie {
+			continue
+		}
+		result.Count++
+		parent := truncate(names[process.ppid], 64)
+		if parent != "" && len(result.Parents) < maxZombieParents && !containsString(result.Parents, parent) {
+			result.Parents = append(result.Parents, parent)
+		}
+	}
+
+	return result
+}
+
+func containsString(values []string, value string) bool {
+	for _, existing := range values {
+		if existing == value {
+			return true
+		}
+	}
+
+	return false
 }
 
 // rankProcesses keeps the top n groups by CPU plus the top n by memory, busiest CPU first.
@@ -153,7 +194,8 @@ func (p *Processes) scan() []processSample {
 			continue
 		}
 
-		process := processSample{pid: pid, name: name, cpuTicks: ticks, uid: statusUID(readFile(dir + "/status"))}
+		state, ppid := procStateAndParent(stat)
+		process := processSample{pid: pid, ppid: ppid, zombie: state == "Z", name: name, cpuTicks: ticks, uid: statusUID(readFile(dir + "/status"))}
 		if fields := strings.Fields(readFile(dir + "/statm")); len(fields) > 1 {
 			pages, _ := strconv.ParseUint(fields[1], 10, 64)
 			process.rssBytes = pages * p.pageSize
@@ -163,6 +205,21 @@ func (p *Processes) scan() []processSample {
 	}
 
 	return processes
+}
+
+// procStateAndParent returns the state letter and parent PID from a /proc/<pid>/stat line.
+func procStateAndParent(stat string) (string, int) {
+	end := strings.LastIndexByte(stat, ')')
+	if end < 0 {
+		return "", 0
+	}
+	fields := strings.Fields(stat[end+1:])
+	if len(fields) < 2 {
+		return "", 0
+	}
+	ppid, _ := strconv.Atoi(fields[1])
+
+	return fields[0], ppid
 }
 
 // isKernelThread reports whether a /proc/<pid>/stat line belongs to a kernel thread (PF_KTHREAD).

@@ -43,6 +43,34 @@ func TestObserveCountsOutOfMemoryKills(t *testing.T) {
 	}
 }
 
+func TestObserveReportsSudoUseNewUsersAndAdminGrants(t *testing.T) {
+	w := NewWatcher()
+	w.sources = 1
+
+	for _, line := range []string{
+		"Jan  1 11:00:00 web-1 sudo:   deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/systemctl restart nginx",
+		"2026-01-01T11:00:01+0000 web-1 sudo[222]:   deploy : PWD=/srv ; USER=root ; COMMAND=/usr/bin/apt update",
+		"Jan  1 11:00:02 web-1 sudo:    alice : TTY=pts/1 ; PWD=/home/alice ; USER=root ; COMMAND=/bin/bash",
+		"Jan  1 11:00:03 web-1 sudo:    mallory : 3 incorrect password attempts ; TTY=pts/2 ; PWD=/tmp ; USER=root ; COMMAND=/bin/sh",
+		"Jan  1 11:00:04 web-1 useradd[333]: new user: name=backup, UID=1002, GID=1002, home=/home/backup, shell=/bin/bash",
+		"Jan  1 11:00:05 web-1 usermod[334]: add 'backup' to group 'sudo'",
+		"Jan  1 11:00:06 web-1 usermod[335]: add 'backup' to group 'www-data'",
+		"Jan  1 11:00:07 web-1 gpasswd[336]: user ci added by root to group docker",
+	} {
+		w.Observe(line)
+	}
+
+	want := &Counts{
+		SudoCommands: 3,
+		SudoUsers:    []string{"deploy", "alice"},
+		NewUsers:     []string{"backup"},
+		AdminGrants:  []string{"backup:sudo", "ci:docker"},
+	}
+	if counts := w.Take(); !reflect.DeepEqual(counts, want) {
+		t.Fatalf("got %+v, want %+v", counts, want)
+	}
+}
+
 func TestTakeIsNilWithoutReadableLogs(t *testing.T) {
 	if counts := NewWatcher().Take(); counts != nil {
 		t.Fatalf("got %+v, want nil", counts)
