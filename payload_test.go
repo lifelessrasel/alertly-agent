@@ -86,6 +86,22 @@ func TestPayloadsMatchFixture(t *testing.T) {
 				{Name: "worker", ID: "9a8b7c6d5e4f", Image: "redis:7", State: "exited", ExitCode: ptr(137), RestartPolicy: "no", RestartCount: ptr(uint64(0))},
 			},
 		},
+		Integrations: &collect.Integrations{
+			MySQL: &collect.MySQLStatus{
+				Health: collect.Health{Up: true}, Connections: 140, MaxConnections: 151, Running: 6,
+				QueriesPerSecond: ptr(85.5), SlowQueries: ptr(uint64(2)), UptimeSeconds: 864000,
+			},
+			Postgres: &collect.PostgresStatus{Health: collect.Health{Error: "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: Connection refused"}},
+			Redis: &collect.RedisStatus{
+				Health: collect.Health{Up: true}, UsedMemoryBytes: 52428800, MaxMemoryBytes: 268435456, Clients: 12,
+				OpsPerSecond: 340, HitRatePercent: ptr(97.5), EvictedKeys: ptr(uint64(0)),
+			},
+			Nginx: &collect.NginxStatus{Health: collect.Health{Up: true}, Active: 25, Reading: 0, Writing: 3, Waiting: 22, RequestsPerSecond: ptr(42.5), Dropped: ptr(uint64(0))},
+			PHPFPM: &collect.PHPFPMStatus{
+				Health: collect.Health{Up: true}, Pool: "www", Active: 10, Idle: 0, Total: 10, ListenQueue: 4,
+				MaxChildrenReached: ptr(uint64(2)), SlowRequests: ptr(uint64(0)),
+			},
+		},
 	}
 
 	payloads := map[string]any{

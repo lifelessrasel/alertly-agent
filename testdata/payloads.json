@@ -209,6 +209,54 @@
               "restart_count": 0
             }
           ]
+        },
+        "integrations": {
+          "mysql": {
+            "up": true,
+            "connections": 140,
+            "max_connections": 151,
+            "running": 6,
+            "queries_per_second": 85.5,
+            "slow_queries": 2,
+            "uptime_seconds": 864000
+          },
+          "postgres": {
+            "up": false,
+            "error": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: Connection refused",
+            "connections": 0,
+            "max_connections": 0,
+            "active": 0,
+            "longest_query_seconds": 0,
+            "database_size_bytes": 0
+          },
+          "redis": {
+            "up": true,
+            "used_memory_bytes": 52428800,
+            "max_memory_bytes": 268435456,
+            "clients": 12,
+            "ops_per_second": 340,
+            "hit_rate_percent": 97.5,
+            "evicted_keys": 0
+          },
+          "nginx": {
+            "up": true,
+            "active": 25,
+            "reading": 0,
+            "writing": 3,
+            "waiting": 22,
+            "requests_per_second": 42.5,
+            "dropped": 0
+          },
+          "php_fpm": {
+            "up": true,
+            "pool": "www",
+            "active": 10,
+            "idle": 0,
+            "total": 10,
+            "listen_queue": 4,
+            "max_children_reached": 2,
+            "slow_requests": 0
+          }
         }
       }
     ]

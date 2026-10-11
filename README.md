@@ -14,6 +14,46 @@ curl -fsSL https://alertly.net/agent/install.sh | sudo bash -s -- --token=alr_..
 
 To see what the agent collects without sending anything, run `sudo -u alertly alertly-agent --once`. Its log is available with `journalctl -u alertly-agent`.
 
+## Databases and web servers
+
+The agent can also report MySQL or MariaDB, PostgreSQL, Redis, nginx and PHP-FPM. Each one is off until you add its lines to `/etc/alertly/agent.yml` and run `sudo systemctl restart alertly-agent`. Credentials stay in that file on the server; passwords are passed to the database clients in the environment, never on the command line, and only numbers and a short error are sent.
+
+```yaml
+# MySQL or MariaDB, through the mysql client.
+# Create the user with: CREATE USER 'alertly'@'localhost' IDENTIFIED BY '...'; GRANT PROCESS ON *.* TO 'alertly'@'localhost';
+mysql_user: alertly
+mysql_password: "..."
+mysql_host: 127.0.0.1
+
+# PostgreSQL, through psql.
+# Create the user with: CREATE ROLE alertly LOGIN PASSWORD '...'; GRANT pg_monitor TO alertly;
+postgres_user: alertly
+postgres_password: "..."
+postgres_host: 127.0.0.1
+postgres_database: postgres
+
+# Redis, spoken to directly.
+redis: 127.0.0.1:6379
+redis_password: "..."
+
+# nginx's stub_status page and PHP-FPM's pm.status_path, both kept private to the server.
+nginx_status_url: http://127.0.0.1/nginx_status
+php_fpm_status_url: http://127.0.0.1/fpm-status
+```
+
+An nginx block that serves both status pages to the server only:
+
+```nginx
+server {
+    listen 127.0.0.1:80;
+    server_name 127.0.0.1;
+    location = /nginx_status { stub_status; allow 127.0.0.1; deny all; }
+    location = /fpm-status { include fastcgi_params; fastcgi_param SCRIPT_FILENAME $fastcgi_script_name; fastcgi_pass unix:/run/php/php-fpm.sock; allow 127.0.0.1; deny all; }
+}
+```
+
+Set `pm.status_path = /fpm-status` in the PHP-FPM pool and reload it. Run `sudo -u alertly alertly-agent --once` to check what the agent sees.
+
 ## Updates
 
 The installer adds an `alertly-agent-update` systemd timer that runs `alertly-agent --update` as root once a day. It asks the dashboard for the current version and, when this one is older, downloads the new binary from `download_url` in `/etc/alertly/agent.yml` (never from an address the API returns), checks its SHA-256 checksum, makes sure it runs, replaces `/usr/local/bin/alertly-agent` and restarts the service. Install with `--no-auto-update` to update by running the install command again instead.

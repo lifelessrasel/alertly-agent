@@ -15,9 +15,14 @@ type Config struct {
 	Docker      bool
 	Logs        bool
 	DownloadURL string
+
+	MySQLHost, MySQLUser, MySQLPassword                      string
+	PostgresHost, PostgresUser, PostgresPassword, PostgresDB string
+	Redis, RedisPassword                                     string
+	NginxStatusURL, PHPFPMStatusURL                          string
 }
 
-// Load reads a flat "key: value" file. Only the keys the installer writes are supported.
+// Load reads a flat "key: value" file: the keys the installer writes, plus the optional integrations.
 func Load(path string) (Config, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -50,6 +55,28 @@ func Load(path string) (Config, error) {
 			cfg.Logs = value == "true"
 		case "download_url":
 			cfg.DownloadURL = strings.TrimRight(value, "/")
+		case "mysql_host":
+			cfg.MySQLHost = value
+		case "mysql_user":
+			cfg.MySQLUser = value
+		case "mysql_password":
+			cfg.MySQLPassword = value
+		case "postgres_host":
+			cfg.PostgresHost = value
+		case "postgres_user":
+			cfg.PostgresUser = value
+		case "postgres_password":
+			cfg.PostgresPassword = value
+		case "postgres_database":
+			cfg.PostgresDB = value
+		case "redis":
+			cfg.Redis = value
+		case "redis_password":
+			cfg.RedisPassword = value
+		case "nginx_status_url":
+			cfg.NginxStatusURL = value
+		case "php_fpm_status_url":
+			cfg.PHPFPMStatusURL = value
 		}
 	}
 	if err := scanner.Err(); err != nil {

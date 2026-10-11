@@ -76,7 +76,11 @@ func printOnce(configPath string) {
 		}
 	}
 
-	collector := collect.NewCollector(docker, nil)
+	var integrations *collect.IntegrationChecker
+	if cfg, err := config.Load(configPath); err == nil {
+		integrations = collect.NewIntegrationChecker(integrationConfig(cfg))
+	}
+	collector := collect.NewCollector(docker, nil, integrations)
 	time.Sleep(2 * time.Second)
 
 	output, _ := json.MarshalIndent(map[string]any{
@@ -180,7 +184,7 @@ func newAgent(cfg config.Config) *agent {
 	return &agent{
 		cfg:            cfg,
 		api:            client.New(cfg.Endpoint, cfg.Token, version),
-		collector:      collect.NewCollector(docker, watcher),
+		collector:      collect.NewCollector(docker, watcher, collect.NewIntegrationChecker(integrationConfig(cfg))),
 		security:       watcher,
 		stateFile:      stateFile,
 		heartbeatEvery: time.Minute,
@@ -377,4 +381,13 @@ func (a *agent) logError(action string, err error) {
 		return
 	}
 	log.Printf("%s: %v", action, err)
+}
+
+func integrationConfig(cfg config.Config) collect.IntegrationConfig {
+	return collect.IntegrationConfig{
+		MySQLHost: cfg.MySQLHost, MySQLUser: cfg.MySQLUser, MySQLPassword: cfg.MySQLPassword,
+		PostgresHost: cfg.PostgresHost, PostgresUser: cfg.PostgresUser, PostgresPassword: cfg.PostgresPassword, PostgresDB: cfg.PostgresDB,
+		RedisAddress: cfg.Redis, RedisPassword: cfg.RedisPassword,
+		NginxStatusURL: cfg.NginxStatusURL, PHPFPMStatusURL: cfg.PHPFPMStatusURL,
+	}
 }
