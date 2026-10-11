@@ -70,6 +70,8 @@ func TestPayloadsMatchFixture(t *testing.T) {
 		Security: &security.Counts{
 			FailedLogins: 4, OOMKills: 1, OOMKilled: []string{"mysqld"},
 			SudoCommands: 3, SudoUsers: []string{"deploy"}, NewUsers: []string{"backup"}, AdminGrants: []string{"backup:sudo"},
+			DiskErrors: 2, DiskErrorDevices: []string{"sdb"}, ReadOnlyFilesystems: []string{"sdb1"},
+			Crashes: 1, Crashed: []string{"php-fpm8.3"}, HardwareErrors: 0, HungTasks: []string{"mysqld"},
 		},
 		Docker: &collect.DockerState{
 			Available: true,

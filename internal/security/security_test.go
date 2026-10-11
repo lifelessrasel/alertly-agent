@@ -111,3 +111,36 @@ func TestResolve(t *testing.T) {
 		}
 	}
 }
+
+func TestObserveReportsSystemErrors(t *testing.T) {
+	w := NewWatcher()
+	w.sources = 1
+
+	for _, line := range []string{
+		"2026-01-01T11:00:00+0000 web-1 kernel: blk_update_request: I/O error, dev sda, sector 123456 op 0x0:(READ) flags 0x0",
+		"2026-01-01T11:00:01+0000 web-1 kernel: I/O error, dev nvme0n1, sector 8 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 2",
+		"2026-01-01T11:00:02+0000 web-1 kernel: Buffer I/O error on dev sda1, logical block 0, async page read",
+		"2026-01-01T11:00:03+0000 web-1 kernel: blk_update_request: I/O error, dev sr0, sector 0 op 0x0:(READ)",
+		"2026-01-01T11:00:04+0000 web-1 kernel: EXT4-fs (sda1): Remounting filesystem read-only",
+		"2026-01-01T11:00:05+0000 web-1 kernel: XFS (vdb): Corruption of in-memory data detected.  Shutting down filesystem",
+		"2026-01-01T11:00:06+0000 web-1 kernel: php-fpm8.3[4321]: segfault at 0 ip 00007f0000000000 sp 00007ffd00000000 error 4 in libc.so.6",
+		"2026-01-01T11:00:07+0000 web-1 kernel: traps: node[999] general protection fault ip:55d0 sp:7ffd error:0 in node[55d0+1000]",
+		"2026-01-01T11:00:08+0000 web-1 kernel: mce: [Hardware Error]: Machine check events logged",
+		"2026-01-01T11:00:09+0000 web-1 kernel: INFO: task mysqld:1234 blocked for more than 120 seconds.",
+	} {
+		w.Observe(line)
+	}
+
+	want := &Counts{
+		DiskErrors:          3,
+		DiskErrorDevices:    []string{"sda", "nvme0n1", "sda1"},
+		ReadOnlyFilesystems: []string{"sda1", "vdb"},
+		Crashes:             2,
+		Crashed:             []string{"php-fpm8.3", "node"},
+		HardwareErrors:      1,
+		HungTasks:           []string{"mysqld"},
+	}
+	if counts := w.Take(); !reflect.DeepEqual(counts, want) {
+		t.Fatalf("got %+v, want %+v", counts, want)
+	}
+}

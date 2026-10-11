@@ -162,6 +162,21 @@
           ],
           "admin_grants": [
             "backup:sudo"
+          ],
+          "disk_errors": 2,
+          "disk_error_devices": [
+            "sdb"
+          ],
+          "read_only_filesystems": [
+            "sdb1"
+          ],
+          "crashes": 1,
+          "crashed": [
+            "php-fpm8.3"
+          ],
+          "hardware_errors": 0,
+          "hung_tasks": [
+            "mysqld"
           ]
         },
         "docker": {

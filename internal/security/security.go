@@ -1,6 +1,7 @@
 // Package security watches the authentication and kernel logs for failed SSH logins, sudo use, new user
-// accounts, admin group changes and out-of-memory kills. Lines are only counted on the server: only counts
-// and user, group and process names are reported, never the commands that were run.
+// accounts, admin group changes, out-of-memory kills and system errors such as failing disks and crashing
+// processes. Lines are only counted on the server: only counts and user, group, device and process names
+// are reported, never the commands that were run.
 package security
 
 import (
@@ -25,6 +26,14 @@ type Counts struct {
 	SudoUsers    []string `json:"sudo_users,omitempty"`
 	NewUsers     []string `json:"new_users,omitempty"`
 	AdminGrants  []string `json:"admin_grants,omitempty"`
+
+	DiskErrors          uint64   `json:"disk_errors"`
+	DiskErrorDevices    []string `json:"disk_error_devices,omitempty"`
+	ReadOnlyFilesystems []string `json:"read_only_filesystems,omitempty"`
+	Crashes             uint64   `json:"crashes"`
+	Crashed             []string `json:"crashed,omitempty"`
+	HardwareErrors      uint64   `json:"hardware_errors"`
+	HungTasks           []string `json:"hung_tasks,omitempty"`
 }
 
 const maxNames = 10
@@ -39,6 +48,15 @@ var (
 	newUser    = regexp.MustCompile(`\buseradd\[\d+\]: new user: name=([^,\s]{1,32})`)
 	groupAdd   = regexp.MustCompile(`\busermod\[\d+\]: add '([^']{1,32})' to group '(` + adminGroups + `)'`)
 	groupGrant = regexp.MustCompile(`\bgpasswd\[\d+\]: user (\S{1,32}) added by \S+ to group (` + adminGroups + `)\b`)
+
+	diskError = regexp.MustCompile(`\bI/O error,? (?:on )?dev ([A-Za-z0-9_-]{1,32})`)
+	readOnly  = regexp.MustCompile(`\b(?:EXT[234]-fs(?: error)?|XFS|BTRFS[^(]*) \(?(?:device )?([A-Za-z0-9_-]{1,32})\)?:? .*(?:[Rr]emounting filesystem read-only|forced readonly|[Ss]hutting down filesystem)`)
+	crash     = regexp.MustCompile(`\b(?:traps: )?([^\s\[\]]{1,64})\[\d+\]:? (?:segfault at|general protection fault|trap invalid opcode)`)
+	hardware  = regexp.MustCompile(`\[Hardware Error\]|Machine check events logged`)
+	hungTask  = regexp.MustCompile(`\btask ([^\s:]{1,64}):\d+ blocked for more than \d+ seconds`)
+
+	// Virtual devices whose errors say nothing about the server's disks, like an empty virtual CD drive.
+	ignoredDevice = regexp.MustCompile(`^(?:loop|sr|fd|ram|zram)\d`)
 )
 
 // Watcher counts security events from the logs it can read.
@@ -126,6 +144,36 @@ func (w *Watcher) Observe(line string) {
 	}
 	if match := groupGrant.FindStringSubmatch(line); match != nil {
 		w.counts.AdminGrants = appendName(w.counts.AdminGrants, match[1]+":"+match[2])
+		return
+	}
+	w.observeSystemError(line)
+}
+
+// observeSystemError counts kernel reports of failing disks, crashing processes and hardware faults.
+// The caller holds the lock.
+func (w *Watcher) observeSystemError(line string) {
+	if match := readOnly.FindStringSubmatch(line); match != nil {
+		w.counts.ReadOnlyFilesystems = appendName(w.counts.ReadOnlyFilesystems, match[1])
+		return
+	}
+	if match := diskError.FindStringSubmatch(line); match != nil {
+		if !ignoredDevice.MatchString(match[1]) {
+			w.counts.DiskErrors++
+			w.counts.DiskErrorDevices = appendName(w.counts.DiskErrorDevices, match[1])
+		}
+		return
+	}
+	if match := crash.FindStringSubmatch(line); match != nil {
+		w.counts.Crashes++
+		w.counts.Crashed = appendName(w.counts.Crashed, match[1])
+		return
+	}
+	if hardware.MatchString(line) {
+		w.counts.HardwareErrors++
+		return
+	}
+	if match := hungTask.FindStringSubmatch(line); match != nil {
+		w.counts.HungTasks = appendName(w.counts.HungTasks, match[1])
 	}
 }
 
