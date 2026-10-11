@@ -64,12 +64,28 @@ func NewCollector(docker *Docker, watcher *security.Watcher, integrations *Integ
 	return &Collector{system: NewSystem(), services: NewServices(), processes: NewProcesses(), docker: docker, security: watcher, updates: NewUpdateChecker(), firewall: NewFirewallChecker(), integrations: integrations}
 }
 
-// Sample collects every metric. watches are the services the server asked to report.
-func (c *Collector) Sample(ctx context.Context, watches []Watch) Sample {
+// Switches are the kinds of data the dashboard lets the agent collect. Kinds it doesn't mention stay on,
+// so older dashboards keep getting everything.
+type Switches map[string]bool
+
+// On reports whether a kind of data may be collected.
+func (s Switches) On(kind string) bool {
+	on, ok := s[kind]
+	return !ok || on
+}
+
+// Sample collects every metric the switches allow. watches are the services the server asked to report.
+func (c *Collector) Sample(ctx context.Context, watches []Watch, switches Switches) Sample {
 	now := time.Now()
 	cpu, diskIO, network, interfaces := c.system.Rates()
 	memory, swap := MemoryUsage()
 	topProcesses, listeningPorts, zombies := c.processes.Top()
+	if !switches.On("processes") {
+		topProcesses = nil
+	}
+	if !switches.On("ports") {
+		listeningPorts = nil
+	}
 
 	sample := Sample{
 		RecordedAt:       now.UTC().Format(time.RFC3339),
@@ -89,18 +105,26 @@ func (c *Collector) Sample(ctx context.Context, watches []Watch) Sample {
 		TopProcesses:     topProcesses,
 		ListeningPorts:   listeningPorts,
 		Zombies:          zombies,
-		Firewall:         c.firewall.Collect(ctx),
-		Updates:          c.updates.Collect(ctx),
 		takenAt:          now,
 	}
 
-	if c.security != nil {
-		sample.Security = c.security.Take()
+	if switches.On("firewall") {
+		sample.Firewall = c.firewall.Collect(ctx)
 	}
-	if c.docker != nil {
+	if switches.On("updates") {
+		sample.Updates = c.updates.Collect(ctx)
+	}
+	if c.security != nil {
+		if counts := c.security.Take(); switches.On("logs") {
+			sample.Security = counts
+		}
+	}
+	if c.docker != nil && switches.On("docker") {
 		sample.Docker = c.docker.Collect(ctx)
 	}
-	sample.Integrations = c.integrations.Collect(ctx)
+	if switches.On("integrations") {
+		sample.Integrations = c.integrations.Collect(ctx)
+	}
 
 	return sample
 }

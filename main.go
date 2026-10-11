@@ -85,7 +85,7 @@ func printOnce(configPath string) {
 
 	output, _ := json.MarshalIndent(map[string]any{
 		"heartbeat": collect.Host(version, endpoint),
-		"sample":    collector.Sample(context.Background(), nil),
+		"sample":    collector.Sample(context.Background(), nil, nil),
 	}, "", "  ")
 	fmt.Println(string(output))
 }
@@ -135,11 +135,12 @@ const dockerSocket = "/var/run/docker.sock"
 
 // serverConfig is returned by the heartbeat and metrics endpoints.
 type serverConfig struct {
-	Paused             bool            `json:"paused"`
-	HeartbeatInterval  int             `json:"heartbeat_interval"`
-	MetricsInterval    int             `json:"metrics_interval"`
-	LatestAgentVersion string          `json:"latest_agent_version"`
-	Watch              []collect.Watch `json:"watch"`
+	Paused             bool             `json:"paused"`
+	HeartbeatInterval  int              `json:"heartbeat_interval"`
+	MetricsInterval    int              `json:"metrics_interval"`
+	LatestAgentVersion string           `json:"latest_agent_version"`
+	Collect            collect.Switches `json:"collect"`
+	Watch              []collect.Watch  `json:"watch"`
 }
 
 type agent struct {
@@ -153,6 +154,7 @@ type agent struct {
 	metricsEvery   time.Duration
 	paused         bool
 	watch          []collect.Watch
+	switches       collect.Switches
 	pending        []collect.Sample
 	batchSize      int
 	warnedVersion  bool
@@ -255,7 +257,7 @@ func (a *agent) collectAndSend(ctx context.Context) {
 	for i := range a.pending {
 		a.pending[i].TopProcesses, a.pending[i].ListeningPorts = nil, nil
 	}
-	a.pending = append(a.pending, a.collector.Sample(ctx, a.watch))
+	a.pending = append(a.pending, a.collector.Sample(ctx, a.watch, a.switches))
 
 	cutoff := time.Now().Add(-maxSampleAge)
 	for len(a.pending) > 0 && (a.pending[0].TakenAt().Before(cutoff) || len(a.pending) > maxPendingSamples) {
@@ -306,6 +308,9 @@ func (a *agent) apply(reply serverConfig) {
 		}
 	}
 	a.watch = reply.Watch
+	if reply.Collect != nil {
+		a.switches = reply.Collect
+	}
 
 	if reply.LatestAgentVersion != "" && !update.SameVersion(reply.LatestAgentVersion, version) && !a.warnedVersion {
 		a.warnedVersion = true

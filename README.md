@@ -58,6 +58,10 @@ Set `pm.status_path = /fpm-status` in the PHP-FPM pool and reload it. Run `sudo 
 
 The installer adds an `alertly-agent-update` systemd timer that runs `alertly-agent --update` as root once a day. It asks the dashboard for the current version and, when this one is older, downloads the new binary from `download_url` in `/etc/alertly/agent.yml` (never from an address the API returns), checks its SHA-256 checksum, makes sure it runs, replaces `/usr/local/bin/alertly-agent` and restarts the service. Install with `--no-auto-update` to update by running the install command again instead.
 
+## Controlled from the dashboard
+
+Every heartbeat and metrics reply carries the reporting intervals, whether the server is paused, the services to watch and a `collect` map. Kinds of data set to `false` there (`processes`, `ports`, `logs`, `updates`, `firewall`, `docker`, `integrations`) are left out of every sample; kinds it doesn't mention stay on. When the site admin holds updates, the version endpoint returns no version and the update timer does nothing.
+
 ## Offline buffering
 
 Measurements that can't be sent are kept for up to 23 hours and written to `/var/lib/alertly/pending.json` (systemd's `StateDirectory`), so they survive restarts. While a server is paused on the dashboard, the agent only sends heartbeats.
