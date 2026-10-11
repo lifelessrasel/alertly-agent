@@ -1,0 +1,176 @@
+{
+  "heartbeat": {
+    "hostname": "web-1",
+    "ip_address": "203.0.113.10",
+    "os": {
+      "id": "ubuntu",
+      "name": "Ubuntu 24.04.1 LTS",
+      "version": "24.04"
+    },
+    "kernel": "6.8.0-45-generic",
+    "architecture": "amd64",
+    "cpu_cores": 4,
+    "memory_total_bytes": 8589934592,
+    "uptime_seconds": 7200,
+    "agent_version": "0.1.0",
+    "timezone": "Europe/Berlin",
+    "server_time": "2026-01-01T12:00:00+01:00"
+  },
+  "metrics": {
+    "samples": [
+      {
+        "recorded_at": "2026-01-01T11:00:00Z",
+        "cpu": {
+          "percent": 12.5,
+          "cores": [
+            20,
+            5
+          ]
+        },
+        "load": [
+          0.5,
+          0.4,
+          0.3
+        ],
+        "memory": {
+          "total_bytes": 8589934592,
+          "used_bytes": 2147483648,
+          "available_bytes": 6442450944
+        },
+        "swap": {
+          "total_bytes": 1073741824,
+          "used_bytes": 0
+        },
+        "disk_io": {
+          "read_bytes_per_sec": 4096,
+          "write_bytes_per_sec": 8192,
+          "utilization_percent": 1.5
+        },
+        "network": {
+          "rx_bytes_per_sec": 1000,
+          "tx_bytes_per_sec": 2000
+        },
+        "process_count": 150,
+        "uptime_seconds": 7200,
+        "filesystems": [
+          {
+            "mount": "/",
+            "device": "/dev/sda1",
+            "fs_type": "ext4",
+            "total_bytes": 85899345920,
+            "used_bytes": 21474836480,
+            "inodes_total": 5242880,
+            "inodes_used": 250000,
+            "read_only": false
+          }
+        ],
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:42:ac:11:00:02",
+            "addresses": [
+              "203.0.113.10/24",
+              "2001:db8::10/64"
+            ],
+            "rx_bytes_per_sec": 1000,
+            "tx_bytes_per_sec": 2000
+          }
+        ],
+        "services": [
+          {
+            "kind": "systemd",
+            "name": "nginx",
+            "state": "running",
+            "process_count": 5,
+            "cpu_percent": 0.8,
+            "memory_bytes": 52428800
+          },
+          {
+            "kind": "process",
+            "name": "php-fpm",
+            "state": "stopped"
+          }
+        ],
+        "failed_units": [
+          "certbot.service"
+        ],
+        "detected_services": [
+          "nginx",
+          "mysql"
+        ],
+        "top_processes": [
+          {
+            "name": "php-fpm8.3",
+            "user": "www-data",
+            "count": 6,
+            "cpu_percent": 7.5,
+            "memory_bytes": 314572800
+          },
+          {
+            "name": "mysqld",
+            "user": "mysql",
+            "count": 1,
+            "cpu_percent": 2.1,
+            "memory_bytes": 838860800
+          }
+        ],
+        "listening_ports": [
+          {
+            "protocol": "tcp",
+            "port": 22,
+            "address": "0.0.0.0"
+          },
+          {
+            "protocol": "tcp",
+            "port": 3306,
+            "address": "127.0.0.1",
+            "process": "mysqld"
+          },
+          {
+            "protocol": "udp",
+            "port": 53,
+            "address": "::"
+          }
+        ],
+        "security": {
+          "failed_logins": 4,
+          "oom_kills": 1,
+          "oom_killed": [
+            "mysqld"
+          ]
+        },
+        "docker": {
+          "available": true,
+          "version": "27.3.1",
+          "containers": [
+            {
+              "name": "app",
+              "id": "4f9d8c1e2b3a",
+              "image": "ghcr.io/example/app:latest",
+              "state": "running",
+              "health": "healthy",
+              "exit_code": 0,
+              "restart_policy": "unless-stopped",
+              "restart_count": 1,
+              "started_at": "2026-01-01T10:00:00Z",
+              "cpu_percent": 3.5,
+              "memory_bytes": 134217728,
+              "memory_limit_bytes": 536870912,
+              "rx_bytes_per_sec": 300,
+              "tx_bytes_per_sec": 400
+            },
+            {
+              "name": "worker",
+              "id": "9a8b7c6d5e4f",
+              "image": "redis:7",
+              "state": "exited",
+              "exit_code": 137,
+              "restart_policy": "no",
+              "restart_count": 0
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
