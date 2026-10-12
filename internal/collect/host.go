@@ -25,6 +25,7 @@ type OSInfo struct {
 type HostInfo struct {
 	Hostname         string `json:"hostname"`
 	IPAddress        string `json:"ip_address,omitempty"`
+	IPv6Address      string `json:"ipv6_address,omitempty"`
 	OS               OSInfo `json:"os"`
 	Kernel           string `json:"kernel,omitempty"`
 	Architecture     string `json:"architecture,omitempty"`
@@ -45,7 +46,8 @@ func Host(version, endpoint string) HostInfo {
 
 	info := HostInfo{
 		Hostname:         hostname,
-		IPAddress:        outboundIP(endpoint),
+		IPAddress:        outboundIP(endpoint, "udp4", "1.1.1.1"),
+		IPv6Address:      outboundIP(endpoint, "udp6", "2606:4700:4700::1111"),
 		OS:               readOSRelease(),
 		Kernel:           strings.TrimSpace(readFile("/proc/sys/kernel/osrelease")),
 		Architecture:     runtime.GOARCH,
@@ -90,21 +92,26 @@ func readOSRelease() OSInfo {
 	return info
 }
 
-// outboundIP is the local address used to reach the API, which is usually the public or primary address.
-func outboundIP(endpoint string) string {
-	host := "1.1.1.1"
+// outboundIP is the local address of the given family ("udp4" or "udp6") used to reach the API, which is
+// usually the public or primary address. Dialing UDP sends nothing; it only picks the route. When the API
+// host has no address of that family, fallback (a public resolver) is used instead. "" means none.
+func outboundIP(endpoint, network, fallback string) string {
+	hosts := []string{fallback}
 	if parsed, err := url.Parse(endpoint); err == nil && parsed.Hostname() != "" {
-		host = parsed.Hostname()
+		hosts = []string{parsed.Hostname(), fallback}
 	}
 
-	conn, err := net.DialTimeout("udp", net.JoinHostPort(host, "443"), 3*time.Second)
-	if err != nil {
-		return ""
-	}
-	defer conn.Close()
+	for _, host := range hosts {
+		conn, err := net.DialTimeout(network, net.JoinHostPort(host, "443"), 3*time.Second)
+		if err != nil {
+			continue
+		}
 
-	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
-		return addr.IP.String()
+		addr, ok := conn.LocalAddr().(*net.UDPAddr)
+		conn.Close()
+		if ok && !addr.IP.IsLoopback() && !addr.IP.IsLinkLocalUnicast() {
+			return addr.IP.String()
+		}
 	}
 
 	return ""

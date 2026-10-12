@@ -22,6 +22,7 @@ func TestPayloadsMatchFixture(t *testing.T) {
 	heartbeat := collect.HostInfo{
 		Hostname:         "web-1",
 		IPAddress:        "203.0.113.10",
+		IPv6Address:      "2001:db8::10",
 		OS:               collect.OSInfo{ID: "ubuntu", Name: "Ubuntu 24.04.1 LTS", Version: "24.04"},
 		Kernel:           "6.8.0-45-generic",
 		Architecture:     "amd64",
