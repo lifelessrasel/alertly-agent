@@ -30,6 +30,7 @@ type HostInfo struct {
 	Kernel           string `json:"kernel,omitempty"`
 	Architecture     string `json:"architecture,omitempty"`
 	CPUCores         int    `json:"cpu_cores,omitempty"`
+	CPUModel         string `json:"cpu_model,omitempty"`
 	MemoryTotalBytes uint64 `json:"memory_total_bytes,omitempty"`
 	UptimeSeconds    uint64 `json:"uptime_seconds"`
 	AgentVersion     string `json:"agent_version"`
@@ -52,6 +53,7 @@ func Host(version, endpoint string) HostInfo {
 		Kernel:           strings.TrimSpace(readFile("/proc/sys/kernel/osrelease")),
 		Architecture:     runtime.GOARCH,
 		CPUCores:         runtime.NumCPU(),
+		CPUModel:         cpuModel(),
 		MemoryTotalBytes: memory["MemTotal"],
 		UptimeSeconds:    uptimeSeconds(),
 		AgentVersion:     version,
@@ -136,6 +138,58 @@ func timezone() string {
 	}
 
 	return ""
+}
+
+// cpuModel is the processor name from /proc/cpuinfo, such as "AMD Ryzen 9 9950X 16-Core Processor".
+// Boards without a model name fall back to the device model, then the hardware identifier.
+func cpuModel() string {
+	return cpuModelFrom(readFile("/proc/cpuinfo"))
+}
+
+func cpuModelFrom(content string) string {
+	var hardware, model string
+
+	for _, line := range strings.Split(content, "\n") {
+		key, value, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+
+		value = strings.Join(strings.Fields(value), " ")
+		if value == "" {
+			continue
+		}
+
+		switch strings.TrimSpace(key) {
+		case "model name":
+			return clip(value, 255)
+		case "Model":
+			if model == "" && !numeric.MatchString(value) {
+				model = value
+			}
+		case "Hardware":
+			if hardware == "" {
+				hardware = value
+			}
+		}
+	}
+
+	if model != "" {
+		return clip(model, 255)
+	}
+
+	return clip(hardware, 255)
+}
+
+var numeric = regexp.MustCompile(`^[0-9]+$`)
+
+func clip(value string, max int) string {
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value
+	}
+
+	return string(runes[:max])
 }
 
 func uptimeSeconds() uint64 {

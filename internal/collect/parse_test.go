@@ -197,6 +197,22 @@ func TestContainerCPUAndMemory(t *testing.T) {
 	}
 }
 
+func TestCPUModelFromProc(t *testing.T) {
+	amd := "processor\t: 0\nvendor_id\t: AuthenticAMD\nmodel\t: 68\nmodel name\t: AMD Ryzen 9 9950X 16-Core Processor\nprocessor\t: 1\nmodel name\t: AMD Ryzen 9 9950X 16-Core Processor\n"
+	if got := cpuModelFrom(amd); got != "AMD Ryzen 9 9950X 16-Core Processor" {
+		t.Fatalf("got %q", got)
+	}
+
+	pi := "processor\t: 0\nmodel name\t: \nHardware\t: BCM2712\nModel\t\t: Raspberry Pi 5 Model B Rev 1.0\n"
+	if got := cpuModelFrom(pi); got != "Raspberry Pi 5 Model B Rev 1.0" {
+		t.Fatalf("got %q", got)
+	}
+
+	if got := cpuModelFrom("Hardware\t: BCM2835\n"); got != "BCM2835" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestZombiesNameTheirParents(t *testing.T) {
 	state, ppid := procStateAndParent("4242 (php-fpm: pool www) Z 900 4242 4242 0 -1 4194564 0 0 0 0 0 0 0 0 20 0 1 0 1000 0 0")
 	if state != "Z" || ppid != 900 {

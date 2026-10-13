@@ -27,6 +27,7 @@ func TestPayloadsMatchFixture(t *testing.T) {
 		Kernel:           "6.8.0-45-generic",
 		Architecture:     "amd64",
 		CPUCores:         4,
+		CPUModel:         "AMD Ryzen 9 9950X 16-Core Processor",
 		MemoryTotalBytes: 8589934592,
 		UptimeSeconds:    7200,
 		AgentVersion:     "0.1.0",
